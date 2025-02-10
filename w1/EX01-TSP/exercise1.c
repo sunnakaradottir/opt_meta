@@ -28,6 +28,7 @@ int parseTSPFile(const char* filePath, tspFile* tsp) {
     while (fgets(line, sizeof(line), fptr) != NULL) {
         line[strcspn(line, "\n")] = '\0'; // remove newline char
 
+        // transfer content to file struct for organization
         if (strncmp(line, "NAME", 4) == 0) {
             tsp->name = strdup(line + 6);
         } else if (strncmp(line, "COMMENT", 7) == 0) {
@@ -61,25 +62,31 @@ int parseTSPFile(const char* filePath, tspFile* tsp) {
     }
 
     fclose(fptr);
-    return EXIT_SUCCESS;
+    return 0;
+}
+
+int setFullPath(const char filePath, const char* filename) {
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {      
+        snprintf(filePath, sizeof(filePath), "%s/%s", cwd, filename);
+        printf("Full path: %s\n", filePath);
+    } else {
+        perror("getcwd() error");
+        return -1;
+    }
+    return 0;
 }
 
 int main (int argc, char* argv[]) {
-    if(argc != 2) // failsafe to check if user provided input
+    if(argc != 2) // check if user provided input
     {
         printf("Usage: ./exercise1 (filename.tsp)\n");
         return -1;
     }
 
-    // get the current working directory and build the full path for the filename
-    char cwd[1024];
-    char fullPath[1024];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {      
-        const char *filename = argv[1]; // TODO: add validator for argv[1]
-        snprintf(fullPath, sizeof(fullPath), "%s/%s", cwd, filename);
-
-        printf("Full path: %s\n", fullPath);
-    } else {
+    const char *filename = argv[1];
+    char *fullPath[1024];
+    if (setFullPath(&fullPath, filename) == -1) {
         perror("getcwd() error");
         return -1;
     }
@@ -91,8 +98,6 @@ int main (int argc, char* argv[]) {
         perror("error parsing file content");
         return -1;
     }
-    printf("TSP Name: %s\n", tsp.name);
-
 
     // Given a set of cities, return the least-cost Hamiltonian path
     return 0;
