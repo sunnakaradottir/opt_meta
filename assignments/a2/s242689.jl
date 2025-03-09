@@ -84,10 +84,10 @@ function GreedyRandomizedConstruction(instance_data::problem_data, α::Float64)
         for line in 1:instance_data.no_prod_lines
             line_revenue = 0.0
             if remaining_time[line] >= instance_data.prod_time[order]
-                # compute total revenue if order is assigned to this line
+                # compute line revenue if order is assigned to this line
                 line_revenue += instance_data.revenue[order] # profit for this order
                 for assigned_order in 1:instance_data.no_orders # add cost savings from other orders
-                    if random_solution.order_mapping[line, assigned_order] != -1
+                    if random_solution.order_mapping[line, assigned_order] != -1 && assigned_order != order
                         line_revenue += instance_data.revenue_pair[order, assigned_order]
                     end
                 end
@@ -113,14 +113,13 @@ function GreedyRandomizedConstruction(instance_data::problem_data, α::Float64)
             selected_line = RCL[rand(1:length(RCL))]
 
             # assign the order to the selected line
-            random_solution.objective = CalculateObjective(random_solution, instance_data)
             random_solution.order_mapping[candidate_lines[selected_line], order] = order
             remaining_time[candidate_lines[selected_line]] -= instance_data.prod_time[order]
         end
 
         visited_orders[order] = true
     end
-
+    random_solution.objective = CalculateObjective(random_solution, instance_data)
     return random_solution
 end
 
