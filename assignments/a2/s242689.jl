@@ -179,16 +179,14 @@ end
 function main()
     # receive user input and retrieve instance data
     if length(ARGS) < 3
-        println("Usage: julia s242689.jl <instance.txt> <solution_filename.txt> <time_limit_seconds>")
+        println("Usage: julia s242689.jl instances/<instance.txt> <solution_filename.txt> <time_limit_seconds>")
         exit(1)
     end
     instance_filename = ARGS[1]
     solution_filename = ARGS[2]
     time_limit_seconds = parse(Float64, ARGS[3])
     time_limit_ns = UInt64(time_limit_seconds * 1_000_000_000)
-    instance_path = pwd() * "/PlastOut_Instances/" * instance_filename
-    solution_path = pwd() * "/PlastOut_Solutions/" * solution_filename
-    problem_data = read_instance(instance_path)
+    problem_data = read_instance(instance_filename)
 
     if !isdir("sols")
         mkdir("sols")
@@ -199,6 +197,7 @@ function main()
     current_solution = solution(-Inf, fill(-1, problem_data.no_prod_lines, problem_data.no_orders))
     alpha = 0.3
 
+    # GRASP algorithm
     while !Terminate(problem_data, current_solution, criteria)
         candidate_solution = GreedyRandomizedConstruction(problem_data, alpha) # randomized solution
         candidate_solution = LocalSearch(problem_data, candidate_solution) # perform local search around it
@@ -210,6 +209,7 @@ function main()
             criteria.not_improvement_count += 1
         end
     end
+
     print("Lower bound: ", problem_data.LB, "\n")
     print("Solution quality: ", current_solution.objective / problem_data.LB, "\n")
     print("Solution objective: ", current_solution.objective, "\n")
@@ -217,10 +217,10 @@ function main()
     return_str = StringRepresentation(current_solution)
     print(return_str)
 
+    # write the solution to a file
     f = open(solution_filename, "w")
-    write(f, return_str)
+    write(f, StringRepresentation(current_solution))
     close(f)
-
 end
 
 main()
