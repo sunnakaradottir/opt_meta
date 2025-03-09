@@ -2,22 +2,27 @@ include("PlastOutReader.jl")
 
 mutable struct solution
     objective::Float64 # total revenue
-    order_mapping::Array{Int, 2} # 2D array: rows = lines, cols = orders
+    order_mapping::Array{Int32, 2} # 2D array: rows = lines, cols = orders
 end
 
 mutable struct termination_criteria
-    max_iterations::Int
-    not_improvement_limit::Int
+    time_limit::UInt32
+    not_improvement_limit::Int32
     candidate_solution::solution
-    iteration::Int
-    not_improvement_count::Int
+    iteration::Int32
+    not_improvement_count::Int32
+    startTime::UInt64
+end
+
+function time_elapsed(criteria::termination_criteria)
+    return time_ns() - criteria.startTime
 end
 
 function Terminate(instance_data::problem_data, some_solution::solution, criteria::termination_criteria)
     criteria.iteration += 1
 
     # stop if max iterations or no improvement for too long
-    return criteria.iteration >= criteria.max_iterations || criteria.not_improvement_count >= criteria.not_improvement_limit
+    return time_elapsed(criteria) >= criteria.time_limit || criteria.not_improvement_count >= criteria.not_improvement_limit
 end
 
 #= struct problem_data
@@ -33,7 +38,7 @@ end =#
 
 function GreedyRandomizedConstruction(instance_data::problem_data, α::Float64)
     # attempts to find an initial fesible solution
-    solution = solution(-Inf, fill(0, instance_data.no_prod_lines, instance_data.no_orders))  # 2D array: rows = lines, cols = orders
+    random_solution = solution(-Inf, fill(0, instance_data.no_prod_lines, instance_data.no_orders))
 
     # initialize variables
     remaining_time = fill(instance_data.time_horizon, instance_data.no_prod_lines) # each production line has max time
@@ -56,7 +61,7 @@ function GreedyRandomizedConstruction(instance_data::problem_data, α::Float64)
                 # compute total revenue if order is assigned to this line
                 total_revenue = instance_data.revenue[order] # profit for this order
                 for assigned_order in 1:instance_data.no_orders # add cost savings from other orders
-                    if solution[line, assigned_order] == 1
+                    if random_solution.order_mapping[line, assigned_order] == 1
                         total_revenue += instance_data.revenue_pair[order, assigned_order]
                     end
                 end
@@ -82,15 +87,15 @@ function GreedyRandomizedConstruction(instance_data::problem_data, α::Float64)
             selected_line = RCL[rand(1:length(RCL))]
 
             # assign the order to the selected line
-            solution.objective = revenue_values[selected_line]
-            solution.order_mapping[candidate_lines[selected_line], order] = 1
+            random_solution.objective = revenue_values[selected_line]
+            random_solution.order_mapping[candidate_lines[selected_line], order] = 1
             remaining_time[candidate_lines[selected_line]] -= instance_data.prod_time[order]
         end
 
         visited_orders[order] = true
     end
 
-    return solution
+    return random_solution
 end
 
 function LocalSearch(instance_data::problem_data, some_solution::solution)
@@ -112,7 +117,7 @@ function LocalSearch(instance_data::problem_data, some_solution::solution)
                     # calculate the revenue of a solution where the order is moved to the new line
                     new_revenue = instance_data.revenue[order]
                     for new_order in 1:instance_data.no_orders # add cost savings from other orders
-                        if solution[new_line, new_order] == 1 # if the new order is also assigned to the line
+                        if some_solution.order_mapping[new_line, new_order] == 1 # if the new order is also assigned to the line
                             new_revenue += instance_data.revenue_pair[order, new_order]
                         end
                     end
@@ -132,20 +137,24 @@ function LocalSearch(instance_data::problem_data, some_solution::solution)
 end
 
 
-function Main()
+function main()
     # receive user input and retrieve instance data
-    if length(ARGS) < 1
-        println("Usage: julia s242689.jl <instance>.txt")
+    if length(ARGS) < 3
+        println("Usage: julia s242689.jl <instance>.txt <solution_filename>.txt <time_limit_seconds>")
         exit(1)
     end
-    instance = ARGS[1]
-    instance_path = pwd() * "/PlastOut_Instances/" * instance
+    instance_filename = ARGS[1]
+    solution_filename = ARGS[2]
+    time_limit_seconds = parse(Float64, ARGS[3])
+    time_limit_ns = UInt64(time_limit_seconds * 1_000_000_000)
+    instance_path = pwd() * "/PlastOut_Instances/" * instance_filename
+    solution_path = pwd() * "/PlastOut_Solutions/" * solution_filename
     problem_data = read_instance(instance_path)
 
     # set up termination criteria and an empty current solution
-    criteria = termination_criteria(1000, 100, solution(-Inf, fill(0, problem_data.no_prod_lines, problem_data.no_orders)), 0, 0)
+    criteria = termination_criteria(time_limit_ns, 100, solution(-Inf, fill(0, problem_data.no_prod_lines, problem_data.no_orders)), 0, 0, time_ns())
     current_solution = solution(-Inf, fill(0, problem_data.no_prod_lines, problem_data.no_orders))
-    alpha = 0.3
+    alpha = 0.5
 
     while !Terminate(problem_data, current_solution, criteria)
         candidate_solution = GreedyRandomizedConstruction(problem_data, alpha) # randomized solution
@@ -158,6 +167,8 @@ function Main()
             criteria.not_improvement_count += 1
         end
     end
+
+    print(current_solution.objective / problem_data.LB)
 
 end
 

@@ -1,12 +1,12 @@
 struct problem_data
     case_name::String
-    no_orders::Int
-    LB::Int
-    revenue::Int
-    revenue_pair::Array{Int, 2}
-    no_prod_lines::Int
-    time_horizon::Int
-    prod_time::Array{Int, 1}
+    no_orders::Int32
+    LB::Int32
+    revenue::Array{Int32,1}
+    revenue_pair::Array{Int32, 2}
+    no_prod_lines::Int32
+    time_horizon::Int32
+    prod_time::Array{Int32, 1}
 end
 
 function read_instance(filename)
