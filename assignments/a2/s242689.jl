@@ -21,10 +21,15 @@ end
 function Terminate(instance_data::problem_data, some_solution::solution, criteria::termination_criteria)
     criteria.iteration += 1
 
-    # stop if max iterations or no improvement for too long
-    #return time_elapsed(criteria) >= criteria.time_limit || criteria.not_improvement_count >= criteria.not_improvement_limit
-    # return TimeElapsed(criteria) >= criteria.time_limit
-    return criteria.not_improvement_count >= criteria.not_improvement_limit
+    if TimeElapsed(criteria) >= criteria.time_limit
+        return true
+    end
+
+    if criteria.not_improvement_count >= criteria.not_improvement_limit
+        return true
+    end
+
+    return false
 end
 
 function CalculateObjective(some_solution::solution, instance_data::problem_data)
@@ -190,7 +195,7 @@ function main()
     end
 
     # set up termination criteria and an empty current solution
-    criteria = termination_criteria(time_limit_ns, 1000, solution(-Inf, fill(-1, problem_data.no_prod_lines, problem_data.no_orders)), 0, 0, time_ns())
+    criteria = termination_criteria(time_limit_ns, 10000, solution(-Inf, fill(-1, problem_data.no_prod_lines, problem_data.no_orders)), 0, 0, time_ns())
     current_solution = solution(-Inf, fill(-1, problem_data.no_prod_lines, problem_data.no_orders))
     alpha = 0.3
 
