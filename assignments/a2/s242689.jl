@@ -6,7 +6,7 @@ mutable struct solution
 end
 
 mutable struct termination_criteria
-    time_limit::UInt32
+    time_limit::UInt64
     not_improvement_limit::Int32
     candidate_solution::solution
     iteration::Int32
@@ -24,17 +24,6 @@ function Terminate(instance_data::problem_data, some_solution::solution, criteri
     # stop if max iterations or no improvement for too long
     return time_elapsed(criteria) >= criteria.time_limit || criteria.not_improvement_count >= criteria.not_improvement_limit
 end
-
-#= struct problem_data
-    case_name::String
-    no_orders::Int
-    LB::Int
-    revenue::Int
-    revenue_pair::Array{Int, 2}
-    no_prod_lines::Int
-    time_horizon::Int
-    prod_time::Array{Int, 1}
-end =#
 
 function GreedyRandomizedConstruction(instance_data::problem_data, α::Float64)
     # attempts to find an initial fesible solution
@@ -140,7 +129,7 @@ end
 function main()
     # receive user input and retrieve instance data
     if length(ARGS) < 3
-        println("Usage: julia s242689.jl <instance>.txt <solution_filename>.txt <time_limit_seconds>")
+        println("Usage: julia s242689.jl <instance.txt> <solution_filename.txt> <time_limit_seconds>")
         exit(1)
     end
     instance_filename = ARGS[1]
