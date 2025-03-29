@@ -210,13 +210,6 @@ function main()
         end
     end
 
-    print("Lower bound: ", problem_data.LB, "\n")
-    print("Solution quality: ", current_solution.objective / problem_data.LB, "\n")
-    print("Solution objective: ", current_solution.objective, "\n")
-    print("Objective function value: ", CalculateObjective(current_solution, problem_data), "\n")
-    return_str = StringRepresentation(current_solution)
-    print(return_str)
-
     # write the solution to a file
     f = open(solution_filename, "w")
     write(f, StringRepresentation(current_solution))
