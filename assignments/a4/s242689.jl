@@ -1,3 +1,4 @@
+using Random
 include("InstanceReader.jl")
 
 mutable struct termination_criteria
@@ -58,47 +59,34 @@ function UpdateSolutionCost(some_solution::solution, instance_data::problem_data
     return total_cost
 end
 
-function CalculateGreedySolution(instance_data::problem_data, starting_customer::Int64)
-    current_customer = starting_customer
-    unvisited = Set(1:instance_data.dimension)
-    delete!(unvisited, current_customer)
-    tour = [current_customer]
-    total_cost = 0.0
-    invalid_tour = false
-
-    while !isempty(unvisited)
-        min_cost = Inf
-        next_customer = -1
-        # we choose the next customer based on the cheapest path from where we are
-        for customer in unvisited
-            current_cost = instance_data.cost[current_customer, customer]
-
-            if current_cost != -1 && current_cost < min_cost
-                min_cost = current_cost
-                next_customer = customer
-            end
+function LocalSearchInitialization(instance_data::problem_data, max_iterations::Int = 100)
+    # Randomly generate an initial sequence of guests
+    guests = collect(1:instance_data.dimension)
+    shuffle!(guests)
+    
+    # Create an initial solution object
+    current_solution = solution(guests, Inf, nothing)
+    current_solution.total_cost = UpdateSolutionCost(current_solution, instance_data)
+    
+    best_solution = deepcopy(current_solution)
+    
+    for iter in 1:max_iterations
+        neighbours = CalculateNeighbours(current_solution)
+        best_neighbour = CalculateBestNeighbour(neighbours, instance_data, termination_criteria(0, 0, 0, 0, time_ns(), [], 0))
+        
+        # If the new solution is better, update the best solution
+        if best_neighbour.total_cost < best_solution.total_cost
+            best_solution = deepcopy(best_neighbour)
+        else
+            # If no improvement is found, break out of the loop
+            break
         end
-
-        # move to next customer if no valid moves found from the previous starting point
-        if next_customer == -1
-            if starting_customer < instance_data.dimension
-                return CalculateGreedySolution(instance_data, starting_customer + 1) # restart from next customer
-            else
-                invalid_tour = true # otherwise we cant find a valid tour
-                tour = collect(1:instance_data.dimension) # return a dummy tour
-                return solution(tour, Inf, nothing)
-            end
-        end
-
-        # move to the next customer
-        push!(tour, next_customer)
-        delete!(unvisited, next_customer)
-        total_cost += min_cost
-        current_customer = next_customer
     end
-
-    return solution(tour, total_cost, nothing)
+    
+    println("Initial solution generated using Local Search: ", StringRepresentation(best_solution))
+    return best_solution
 end
+
 
 function CalculateNeighbours(some_solution::solution)
     neighbours = []
@@ -135,37 +123,31 @@ end
 
 function main()
     println("🚀 Starting Tabu Search Algorithm...")
-    # receive user input and retrieve instance data
-    if length(ARGS) < 3
-        println("Usage: julia s242689.jl Instances/<instance.txt> <solution_filename.txt> <time_limit_seconds>")
-        exit(1)
-    end
     instance_filename = ARGS[1]
     solution_filename = ARGS[2]
     time_limit_seconds = parse(Float64, ARGS[3])
     time_limit_ns = UInt64(time_limit_seconds * 1_000_000_000)
-    instance_data = read_instance(instance_filename) # structure the problem data for referencing
-    if !isdir("sols")
-        mkdir("sols") # create solution directory if it doesnt exist
-    end
-    # generate initial greedy solution and setup termination criteria
-    current_solution = CalculateGreedySolution(instance_data, 1)
-    criteria = termination_criteria(time_limit_ns, 5000, 0, 0, time_ns(), [], 50)
-    println("Initial Tour: ", StringRepresentation(current_solution))
+    instance_data = read_instance(instance_filename)
 
+    if !isdir("sols")
+        mkdir("sols")
+    end
+
+    # Generate initial solution using Local Search
+    current_solution = LocalSearchInitialization(instance_data, 100)
+    criteria = termination_criteria(time_limit_ns, 5000, 0, 0, time_ns(), [], 50)
+    
     println("🏁 Starting optimization process...")
-    # run the CTSP algorithm to try and get a better solution
+
     while !Terminate(criteria)
         neighbours = CalculateNeighbours(current_solution)
         best_neighbour = CalculateBestNeighbour(neighbours, instance_data, criteria)
 
         if best_neighbour.total_cost < Inf
-            # add move to tabu list
             if best_neighbour.swap_move !== nothing
                 PushToTabuList!(criteria, best_neighbour.swap_move)
             end
 
-            # check if this is the best solution found so far, update if it is
             if best_neighbour.total_cost < current_solution.total_cost
                 current_solution = best_neighbour
                 criteria.not_improvement_count = 0
@@ -177,13 +159,10 @@ function main()
         criteria.iteration += 1
     end
 
-    # write the best solution to a file
-    f = open(solution_filename, "w")
-    write(f, StringRepresentation(current_solution))
-    close(f)
-    
+    # Print the best solution quality
     println("📊 Upper bound: ", instance_data.upper_bound)
-    println("📊 Upper bound: ", current_solution.total_cost)
+    println("📊 Best Solution Cost: ", current_solution.total_cost)
+    
     if current_solution.total_cost != Inf && current_solution.total_cost > 0
         solution_quality = instance_data.upper_bound / current_solution.total_cost
         println("📊 Solution Quality (Upper Bound / Solution Cost): ", round(solution_quality, digits=4))
@@ -191,6 +170,12 @@ function main()
         println("📊 Solution Quality: Cannot calculate, solution is invalid (Inf or 0).")
     end
 
+    f = open(solution_filename, "w")
+    write(f, StringRepresentation(current_solution))
+    close(f)
+
+    println()
 end
+
 
 main()
